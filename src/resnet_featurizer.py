@@ -62,8 +62,7 @@ from torch.utils.data import DataLoader
 import torch
 import argparse
 import numpy as np
-import h5py
-from PIL import Image, ImageFile
+from PIL import Image
 import glob
 import os
 import time
@@ -81,6 +80,9 @@ class CRC_Dataset:
         className = file.split('/')[-2]
         fileName = file.split('/')[-1]
         return self.transform(im), className, fileName
+
+    def __len__(self):
+        return len(self.files)
 
 
 def extract_features(model, device, dataloader, batch_size, dest_dir):
@@ -102,7 +104,6 @@ def main():
     parser = argparse.ArgumentParser(description='Process args for Feature Extraction')
     parser.add_argument("--root_dir", type=str, required=True)
     parser.add_argument("--dest_dir", type=str, required=True)
-    parser.add_argument("--h5py_file_path", type=str, required=True)
     parser.add_argument("--batch_size", type=int, default=64)
     args = parser.parse_args()
 
@@ -124,10 +125,10 @@ def main():
     # model = nn.Sequential(*layers)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = nn.DataParallel(model).to(device)
+    featurizer = nn.DataParallel(featurizer).to(device)
 
     print("Extracting features from {} at {}".format(args.root_dir, args.dest_dir), flush=True)
-    extract_features(model, device, dataloader, args.batch_size, args.dest_dir)
+    extract_features(featurizer, device, dataloader, args.batch_size, args.dest_dir)
     print("FIN.", flush=True)
 
 
