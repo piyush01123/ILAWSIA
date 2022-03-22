@@ -21,3 +21,16 @@ python resnet_featurizer.py \
 python resnet_featurizer.py \
   --root_dir /ssd_scratch/cvit/piyush/TestSet \
   --dest_dir /ssd_scratch/cvit/piyush/TestDB
+
+
+python featurizer_512.py \
+  --root_dir /ssd_scratch/cvit/piyush/QueryDB \
+  --dest_dir /ssd_scratch/cvit/piyush/Query512DB
+
+python featurizer_512.py \
+  --root_dir /ssd_scratch/cvit/piyush/SearchDB \
+  --dest_dir /ssd_scratch/cvit/piyush/Search512DB
+
+python featurizer_512.py \
+  --root_dir /ssd_scratch/cvit/piyush/TestDB \
+  --dest_dir /ssd_scratch/cvit/piyush/Test512DB
