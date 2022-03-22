@@ -26,7 +26,7 @@ class CRC_Feat_Dataset:
         self.root_dir=root_dir
         self.files=sorted(glob.glob(os.path.join(root_dir, '*', '*.npy')))
         self.class2id = {j:i for i, j in enumerate(sorted(os.listdir(root_dir)))}
-dest_dir, "report.json"
+
     def __getitem__(self, index):
         file = self.files[index]
         className = file.split('/')[-2]
