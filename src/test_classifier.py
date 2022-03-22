@@ -59,8 +59,8 @@ def run_test(model, device, dataloader, batch_size, dest_dir):
     fh.close()
 
     fh = open(os.path.join(dest_dir, 'conf.mat'), 'w')
-    f.write(metrics.confusion_matrix(y_gt, y_pred, labels=range(NUM_CLASSES)).__str__())
-    f.close()
+    fh.write(metrics.confusion_matrix(y_gt, y_pred, labels=range(NUM_CLASSES)).__str__())
+    fh.close()
 
 
 def main():
