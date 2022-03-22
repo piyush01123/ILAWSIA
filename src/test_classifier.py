@@ -46,6 +46,8 @@ def run_test(model, device, dataloader, batch_size, dest_dir):
             batch = batch.to(device)
             output = model(batch)
             preds = output.argmax(dim=1, keepdim=True).squeeze()
+            y_gt.extend(targets.tolist())
+            y_pred.extend(preds.tolist())
             if i%100==0:
                 print("[INFO: {}] {}/{} Done.".format(time.strftime("%d-%b-%Y %H:%M:%S"), \
                     i*batch_size+len(batch), len(dataloader.dataset)), flush=True)
