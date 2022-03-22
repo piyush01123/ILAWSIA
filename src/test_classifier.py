@@ -50,7 +50,7 @@ def run_test(model, device, dataloader, batch_size, dest_dir):
                 print("[INFO: {}] {}/{} Done.".format(time.strftime("%d-%b-%Y %H:%M:%S"), \
                     i*batch_size+len(batch), len(dataloader.dataset)), flush=True)
     report = metrics.classification_report(y_gt, y_pred, digits=4, output_dict=True, \
-                labels=range(NUM_CLASSES), target_names=classNames)
+                labels=range(NUM_CLASSES), target_names=sorted(os.listdir(dataloader.dataset.root_dir)))
     fh = open(os.path.join(dest_dir, "report.json"), 'w')
     json.dump(report, fh)
     fh.close()
