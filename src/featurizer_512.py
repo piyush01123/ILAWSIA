@@ -1,7 +1,7 @@
 
 
 """
-(512,7,7) -> (512) -> TSNE
+(512,7,7) -> (512)
 """
 
 import torch.nn as nn
@@ -51,6 +51,7 @@ def main():
     parser.add_argument("--dest_dir", type=str, required=True)
     parser.add_argument("--batch_size", type=int, default=64)
     args = parser.parse_args()
+    print(args,flush=True)
 
     dataset = CRC_Feat_Dataset(root_dir=args.root_dir)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
