@@ -51,13 +51,14 @@ def run_test(model, device, dataloader, batch_size, dest_dir):
             if i%100==0:
                 print("[INFO: {}] {}/{} Done.".format(time.strftime("%d-%b-%Y %H:%M:%S"), \
                     i*batch_size+len(batch), len(dataloader.dataset)), flush=True)
+
     report = metrics.classification_report(y_gt, y_pred, digits=4, output_dict=True, \
                 labels=range(NUM_CLASSES), target_names=sorted(os.listdir(dataloader.dataset.root_dir)))
     fh = open(os.path.join(dest_dir, "report.json"), 'w')
     json.dump(report, fh)
     fh.close()
 
-    fh = open(os.path.oin(dest_dir, 'conf.mat'), 'w')
+    fh = open(os.path.join(dest_dir, 'conf.mat'), 'w')
     f.write(metrics.confusion_matrix(y_gt, y_pred, labels=range(NUM_CLASSES)).__str__())
     f.close()
 
@@ -81,6 +82,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = nn.DataParallel(model).to(device)
 
+    os.makedirs(args.export_dir, exist_ok=True)
     run_test(model, device, dataloader, args.batch_size, args.export_dir)
     print("FIN.", flush=True)
 
