@@ -55,7 +55,7 @@ def run_test(model, device, dataloader, batch_size, dest_dir):
     report = metrics.classification_report(y_gt, y_pred, digits=4, output_dict=True, \
                 labels=range(NUM_CLASSES), target_names=sorted(os.listdir(dataloader.dataset.root_dir)))
     fh = open(os.path.join(dest_dir, "report.json"), 'w')
-    json.dump(report, fh)
+    json.dump(report, fh, indent=4)
     fh.close()
 
     fh = open(os.path.join(dest_dir, 'conf.mat'), 'w')

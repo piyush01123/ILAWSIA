@@ -8,7 +8,7 @@ import random
 import matplotlib
 
 
-def plot_tsne(root_dir, points_per_class, outfile)
+def plot_tsne(root_dir, points_per_class, outfile):
     classNames = sorted(os.listdir(root_dir))
     features = []
     random.seed(42)

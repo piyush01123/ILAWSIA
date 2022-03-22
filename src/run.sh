@@ -34,3 +34,13 @@ python featurizer_512.py \
 python featurizer_512.py \
   --root_dir /ssd_scratch/cvit/piyush/TestDB \
   --dest_dir /ssd_scratch/cvit/piyush/Test512DB
+
+mkdir -p results
+
+python plot_tsne.py \
+  --root_dir /ssd_scratch/cvit/piyush/Test512DB \
+  --outfile results/tsne_plot.png
+
+python test_classifier.py \
+  --root_dir /ssd_scratch/cvit/piyush/TestDB \
+  --export_dir results
