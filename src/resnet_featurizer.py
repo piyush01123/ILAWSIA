@@ -106,6 +106,7 @@ def main():
     parser.add_argument("--dest_dir", type=str, required=True)
     parser.add_argument("--batch_size", type=int, default=64)
     args = parser.parse_args()
+    print(args,flush=True)
 
     transform = transforms.Compose([
         transforms.Resize(224),
