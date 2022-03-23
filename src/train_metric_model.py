@@ -103,10 +103,6 @@ def val_epoch(model, dataloader, device, writer, epoch):
         hard_triplets = miner(out,target)
         loss = criterion(out, target, hard_triplets)
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
         running_loss += loss.item() * miner.num_triplets
         dataset_size += miner.num_triplets
 
