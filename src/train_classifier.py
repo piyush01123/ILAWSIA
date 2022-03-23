@@ -45,12 +45,13 @@ class CRC_Feat_Dataset:
 
 
 def update_stats_json(json_file, epoch, loss_trn, acc_trn, loss_val, acc_val, report):
-    if os.path.isfile(json_file)
-        dict = json.load(json_file)
+    if os.path.isfile(json_file):
+        fh = open(json_file, 'r')
+        dict = json.load(fh)
     else:
         dict = []
     curr_dict = {"epoch":epoch, "loss_trn":loss_trn, "acc_trn":acc_trn, "loss_val":loss_val, "acc_val":acc_val, "report":report}
-    dict.append({curr_dict})
+    dict.append(curr_dict)
     fh = open(json_file, 'w')
     json.dump(dict, fh, indent=4)
     fh.close()
@@ -63,21 +64,24 @@ def train_epoch(model, dataloader, optimizer, device, writer, epoch):
 
     for i, (data,target,_) in enumerate(dataloader):
         data,target = data.to(device),target.to(device)
-        out = model(batch)
+        out = model(data)
 
         optimizer.zero_grad()
-        loss = criterion(input=output,target=target)
+        loss = criterion(input=out,target=target)
         loss.backward()
         optimizer.step()
 
-        pred = out.argmax(dim=1, keepdim=True)
-        correct = pred.eq(target.view_as(pred)).sum().item()
+        pred = out.argmax(dim=1)
+        correct = pred.eq(target).sum().item()
         running_correct += correct
         running_loss += loss.item()*len(data)
         acc_batch = correct/len(data)
 
-        writer.add_scalar("Loss/Train", loss.item(), epoch*len(dataloader)+i)
-        writer.add_scalar("Acc/Train", acc_batch, epoch*len(dataloader)+i)
+        writer.add_scalar("Loss_Train", loss.item(), epoch*len(dataloader)+i)
+        writer.add_scalar("Acc_Train", acc_batch, epoch*len(dataloader)+i)
+        
+        if i%100==0:
+            print("[Train] Epoch: {}, Batch: {}".format(epoch, i), flush=True)
 
     epoch_loss = running_loss/len(dataloader.dataset)
     epoch_acc = running_correct/len(dataloader.dataset)
@@ -87,29 +91,40 @@ def train_epoch(model, dataloader, optimizer, device, writer, epoch):
 def val_epoch(model, dataloader, device, writer, epoch):
     y_pred = []
     y_gt = []
+    running_loss = 0
+    running_correct = 0
     criterion = nn.CrossEntropyLoss()
 
     for i, (data,target,_) in enumerate(dataloader):
         data,target = data.to(device),target.to(device)
-        out = model(batch)
+        out = model(data)
 
-        loss = criterion(input=output,target=target)
+        loss = criterion(input=out,target=target)
 
-        pred = out.argmax(dim=1, keepdim=True)
+        pred = out.argmax(dim=1)
+        correct = pred.eq(target).sum().item()
+        running_correct += correct
         running_loss += loss.item()*len(data)
-        y_gt.append(target.tolist())
-        y_pred.append(pred.tolist())
+        y_gt.extend(target.tolist())
+        y_pred.extend(pred.tolist())
 
+        if i%10==0:
+            print("[Eval] Epoch: {}, Batch: {}".format(epoch, i), flush=True)
+        
     epoch_loss = running_loss/len(dataloader.dataset)
     epoch_acc = running_correct/len(dataloader.dataset)
     report = metrics.classification_report(y_gt, y_pred, digits=4, output_dict=True, \
                 labels=range(NUM_CLASSES), target_names=sorted(os.listdir(dataloader.dataset.dataset.root_dir)))
+
+    writer.add_scalar("Loss_Val", epoch_loss, epoch)
+    writer.add_scalar("Acc_Val", epoch_acc, epoch)
+
     return epoch_loss, epoch_acc, report
 
 
 def train_classification_model(root_dir, checkpoint, batch_size, ckpt_dir, log_dir, num_epochs, learning_rate):
-    if checkpoint is not None:
-        assert os.path.isfile(checkpoint, "Provided checkpoint not found.")
+    if checkpoint:
+        assert os.path.isfile(checkpoint), "Provided checkpoint not found."
     os.makedirs(ckpt_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
 
@@ -127,9 +142,9 @@ def train_classification_model(root_dir, checkpoint, batch_size, ckpt_dir, log_d
     layers = [resnet.layer4[1], resnet.avgpool, nn.Flatten(), resnet.fc]
     model = nn.Sequential(*layers)
 
-    state_dict = torch.load()
-    if checkpoint is not None:
-        model.load_state_dict(checkpoint)
+    if checkpoint:
+        state_dict = torch.load(checkpoint)
+        model.load_state_dict(state_dict)
 
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -141,12 +156,12 @@ def train_classification_model(root_dir, checkpoint, batch_size, ckpt_dir, log_d
 
     for epoch in range(num_epochs):
         model.train()
-        loss_trn, acc_trn = train_epoch(model, train_dl, optimizer, device, log_dir, writer, epoch)
+        loss_trn, acc_trn = train_epoch(model, train_dl, optimizer, device, writer, epoch)
         ckpt_fp = os.path.join(ckpt_dir, "classifier_ep{}.pt".format(epoch))
         torch.save(model.module.state_dict(), ckpt_fp)
         model.eval()
         with torch.no_grad():
-            loss_val, acc_val, report = val_epoch(model, val_dl, device, log_dir, writer, epoch)
+            loss_val, acc_val, report = val_epoch(model, val_dl, device, writer, epoch)
         stats_file = os.path.join(log_dir, "stats.json")
         update_stats_json(stats_file, epoch, loss_trn, acc_trn, loss_val, acc_val, report)
     wandb.finish()
@@ -161,7 +176,7 @@ def main():
     parser.add_argument("--num_epochs", type=int, default=50)
     parser.add_argument("--learning_rate", type=float, default=1e-3)
     parser.add_argument("--ckpt_dir", type=str, default="checkpoints")
-    parser.add_argument("--log_dir", type=int, default=os.path.join("logs", time))
+    parser.add_argument("--log_dir", type=str, default=os.path.join("logs", time))
     args = parser.parse_args()
     print(args,flush=True)
     train_classification_model(args.root_dir, args.checkpoint, args.batch_size, \
