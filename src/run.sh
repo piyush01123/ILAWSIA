@@ -35,12 +35,33 @@ python featurizer_512.py \
   --root_dir /ssd_scratch/cvit/piyush/TestDB \
   --dest_dir /ssd_scratch/cvit/piyush/Test512DB
 
-mkdir -p results
+mkdir -p results_before_trg results_after_trg
 
 python plot_tsne.py \
   --root_dir /ssd_scratch/cvit/piyush/Test512DB \
-  --outfile results/tsne_plot.png
+  --outfile results_before_trg/tsne_plot.png
 
 python test_classifier.py \
   --root_dir /ssd_scratch/cvit/piyush/TestDB \
-  --export_dir results
+  --export_dir results_before_trg
+
+python train_classifier.py \
+  --root_dir /ssd_scratch/cvit/piyush/QueryDB \
+  --ckpt_dir checkpoints \
+  --log_dir logs
+
+python test_classifier.py \
+  --root_dir /ssd_scratch/cvit/piyush/TestDB \
+  --export_dir results_after_trg \
+  --checkpoint checkpoints/classifier_ep49.pt
+
+python train_metric_model.py \
+  --root_dir /ssd_scratch/cvit/piyush/QueryDB \
+  --ckpt_dir checkpoints_met \
+  --log_dir logs_met
+
+
+python plot_tsne.py \
+  --root_dir /ssd_scratch/cvit/piyush/Test512DB \
+  --checkpoint checkpoints_met/triplet_model_ep49.pt \
+  --outfile results_after_trg/tsne_plot.png
