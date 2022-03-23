@@ -157,7 +157,7 @@ def train_triplet_loss_model(root_dir, checkpoint, batch_size, ckpt_dir, log_dir
     for epoch in range(num_epochs):
         model.train()
         loss_trn = train_epoch(model, train_dl, optimizer, device, writer, epoch)
-        ckpt_fp = os.path.join(ckpt_dir, "classifier_ep{}.pt".format(epoch))
+        ckpt_fp = os.path.join(ckpt_dir, "triplet_model_ep{}.pt".format(epoch))
         torch.save(model.module.state_dict(), ckpt_fp)
         model.eval()
         with torch.no_grad():
