@@ -45,16 +45,9 @@ def extract_features(model, device, dataloader, batch_size, dest_dir):
                 print("[INFO: {}] {}/{} Done.".format(time.strftime("%d-%b-%Y %H:%M:%S"), i*batch_size+len(batch), len(dataloader.dataset)), flush=True)
 
 
-def main():
-    parser = argparse.ArgumentParser(description='Process args for Feature Extraction')
-    parser.add_argument("--root_dir", type=str, required=True)
-    parser.add_argument("--dest_dir", type=str, required=True)
-    parser.add_argument("--batch_size", type=int, default=64)
-    args = parser.parse_args()
-    print(args,flush=True)
-
-    dataset = CRC_Feat_Dataset(root_dir=args.root_dir)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
+def run_featurizer(root_dir, dest_dir, batch_size):
+    dataset = CRC_Feat_Dataset(root_dir=root_dir)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     resnet = models.resnet18(pretrained = True)
     layers = [resnet.layer4[1], resnet.avgpool, nn.Flatten()]
@@ -63,9 +56,19 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     featurizer = nn.DataParallel(featurizer).to(device)
 
-    print("Extracting features from {} at {}".format(args.root_dir, args.dest_dir), flush=True)
-    extract_features(featurizer, device, dataloader, args.batch_size, args.dest_dir)
+    print("Extracting features from {} at {}".format(root_dir, dest_dir), flush=True)
+    extract_features(featurizer, device, dataloader, batch_size, dest_dir)
     print("FIN.", flush=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Process args for Feature Extraction')
+    parser.add_argument("--root_dir", type=str, required=True)
+    parser.add_argument("--dest_dir", type=str, required=True)
+    parser.add_argument("--batch_size", type=int, default=64)
+    args = parser.parse_args()
+    print(args,flush=True)
+    run_featurizer(args.root_dir, args.dest_dir, args.batch_size)
 
 
 if __name__=="__main__":
