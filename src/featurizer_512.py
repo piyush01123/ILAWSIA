@@ -45,13 +45,18 @@ def extract_features(model, device, dataloader, batch_size, dest_dir):
                 print("[INFO: {}] {}/{} Done.".format(time.strftime("%d-%b-%Y %H:%M:%S"), i*batch_size+len(batch), len(dataloader.dataset)), flush=True)
 
 
-def run_featurizer(root_dir, dest_dir, batch_size):
+def run_featurizer(root_dir, dest_dir, checkpoint, batch_size):
     dataset = CRC_Feat_Dataset(root_dir=root_dir)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     resnet = models.resnet18(pretrained = True)
     layers = [resnet.layer4[1], resnet.avgpool, nn.Flatten()]
     featurizer = nn.Sequential(*layers)
+
+    if checkpoint:
+        assert os.path.isfile(checkpoint), "Checkpoint file not found."
+        state_dict = torch.load(checkpoint)
+        featurizer.load_state_dict(state_dict)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     featurizer = nn.DataParallel(featurizer).to(device)
@@ -65,10 +70,11 @@ def main():
     parser = argparse.ArgumentParser(description='Process args for Feature Extraction')
     parser.add_argument("--root_dir", type=str, required=True)
     parser.add_argument("--dest_dir", type=str, required=True)
+    parser.add_argument("--checkpoint", type=str, required=True)
     parser.add_argument("--batch_size", type=int, default=64)
     args = parser.parse_args()
     print(args,flush=True)
-    run_featurizer(args.root_dir, args.dest_dir, args.batch_size)
+    run_featurizer(args.root_dir, args.dest_dir, args.checkpoint, args.batch_size)
 
 
 if __name__=="__main__":
