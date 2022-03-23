@@ -70,7 +70,7 @@ def main():
     parser = argparse.ArgumentParser(description='Process args for Feature Extraction')
     parser.add_argument("--root_dir", type=str, required=True)
     parser.add_argument("--dest_dir", type=str, required=True)
-    parser.add_argument("--checkpoint", type=str, required=True)
+    parser.add_argument("--checkpoint", type=str, default="")
     parser.add_argument("--batch_size", type=int, default=64)
     args = parser.parse_args()
     print(args,flush=True)
