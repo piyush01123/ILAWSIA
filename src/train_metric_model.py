@@ -75,16 +75,17 @@ def train_epoch(model, dataloader, optimizer, device, writer, epoch):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
-        running_loss += loss.item() * miner.num_triplets
-        dataset_size += miner.num_triplets
+        
+        num_triplets = miner.num_triplets
+        running_loss += loss.item() * num_triplets
+        dataset_size += num_triplets
 
         writer.add_scalar("Loss_Train", loss.item(), epoch*len(dataloader)+i)
 
         if i%100==0:
             print("[Train] Epoch: {}, Batch: {}".format(epoch, i), flush=True)
 
-    epoch_loss = running_loss/dataset_size
+    epoch_loss = running_loss/dataset_size if dataset_size else 0
     return epoch_loss
 
 
@@ -103,8 +104,9 @@ def val_epoch(model, dataloader, device, writer, epoch):
         hard_triplets = miner(out,target)
         loss = criterion(out, target, hard_triplets)
 
-        running_loss += loss.item() * miner.num_triplets
-        dataset_size += miner.num_triplets
+        num_triplets = miner.num_triplets
+        running_loss += loss.item() * num_triplets
+        dataset_size += num_triplets
 
         embedding_db.append(out)
         label_db.append(target)
@@ -112,7 +114,7 @@ def val_epoch(model, dataloader, device, writer, epoch):
         if i%100==0:
             print("[Eval] Epoch: {}, Batch: {}".format(epoch, i), flush=True)
 
-    epoch_loss = running_loss/dataset_size
+    epoch_loss = running_loss/dataset_size if dataset_size else 0
     writer.add_scalar("Loss_Val", epoch_loss, epoch)
     embedding_db = torch.cat(embedding_db)
     label_db = torch.cat(label_db)
