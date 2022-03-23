@@ -64,8 +64,8 @@ def run_test(model, device, dataloader, batch_size, dest_dir):
 
 
 def test_classifier_model(root_dir, export_dir, batch_size=64):
-    dataset = CRC_Feat_Dataset(root_dir=args.root_dir)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
+    dataset = CRC_Feat_Dataset(root_dir=root_dir)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     resnet = models.resnet18(pretrained = True)
     resnet.fc = nn.Linear(resnet.fc.in_features, NUM_CLASSES)
@@ -75,8 +75,8 @@ def test_classifier_model(root_dir, export_dir, batch_size=64):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = nn.DataParallel(model).to(device)
 
-    os.makedirs(args.export_dir, exist_ok=True)
-    run_test(model, device, dataloader, args.batch_size, args.export_dir)
+    os.makedirs(export_dir, exist_ok=True)
+    run_test(model, device, dataloader, batch_size, export_dir)
     print("FIN.", flush=True)
 
 
