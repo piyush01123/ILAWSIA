@@ -63,7 +63,7 @@ def run_test(model, device, dataloader, batch_size, dest_dir):
     fh.close()
 
 
-def test_classifier_model(root_dir, export_dir, batch_size=64):
+def test_classifier_model(root_dir, export_dir, checkpoint, batch_size=64):
     dataset = CRC_Feat_Dataset(root_dir=root_dir)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
@@ -71,6 +71,10 @@ def test_classifier_model(root_dir, export_dir, batch_size=64):
     resnet.fc = nn.Linear(resnet.fc.in_features, NUM_CLASSES)
     layers = [resnet.layer4[1], resnet.avgpool, nn.Flatten(), resnet.fc]
     model = nn.Sequential(*layers)
+
+    if checkpoint:
+        state_dict = torch.load(checkpoint)
+        model.load_state_dict(state_dict)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = nn.DataParallel(model).to(device)
@@ -85,9 +89,10 @@ def main():
     parser.add_argument("--root_dir", type=str, required=True)
     parser.add_argument("--export_dir", type=str, default="perf_res")
     parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--checkpoint", type=str, default="")
     args = parser.parse_args()
     print(args,flush=True)
-    test_classifier_model(args.root_dir, args.export_dir, args.batch_size)
+    test_classifier_model(args.root_dir, args.export_dir, args.checkpoint, args.batch_size)
 
 if __name__=="__main__":
     main()
