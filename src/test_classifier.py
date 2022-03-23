@@ -63,14 +63,7 @@ def run_test(model, device, dataloader, batch_size, dest_dir):
     fh.close()
 
 
-def main():
-    parser = argparse.ArgumentParser(description='Measures peformance against test set')
-    parser.add_argument("--root_dir", type=str, required=True)
-    parser.add_argument("--export_dir", type=str, default="perf_res")
-    parser.add_argument("--batch_size", type=int, default=64)
-    args = parser.parse_args()
-    print(args,flush=True)
-
+def test_classifier_model(root_dir, export_dir, batch_size=64):
     dataset = CRC_Feat_Dataset(root_dir=args.root_dir)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
 
@@ -86,6 +79,15 @@ def main():
     run_test(model, device, dataloader, args.batch_size, args.export_dir)
     print("FIN.", flush=True)
 
+
+def main():
+    parser = argparse.ArgumentParser(description='Measures peformance against test set')
+    parser.add_argument("--root_dir", type=str, required=True)
+    parser.add_argument("--export_dir", type=str, default="perf_res")
+    parser.add_argument("--batch_size", type=int, default=64)
+    args = parser.parse_args()
+    print(args,flush=True)
+    test_classifier_model(args.root_dir, args.export_dir, args.batch_size)
 
 if __name__=="__main__":
     main()
