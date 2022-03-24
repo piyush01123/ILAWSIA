@@ -70,7 +70,7 @@ python train_metric_model.py \
 # Results after trg metric model
 python featurizer_512.py \
   --root_dir /ssd_scratch/cvit/piyush/TestDB \
-  --dest_dir /ssd_scratch/cvit/piyush/Test512DBTrained
+  --dest_dir /ssd_scratch/cvit/piyush/Test512DBTrained \
   --checkpoint checkpoints_met/triplet_model_ep49.pt
 
 python plot_tsne.py \
