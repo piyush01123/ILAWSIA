@@ -8,7 +8,7 @@ import random
 import matplotlib
 
 
-def plot_tsne(root_dir, points_per_class, outfile):
+def plot_tsne(root_dir, outfile, points_per_class=50):
     classNames = sorted(os.listdir(root_dir))
     features = []
     random.seed(42)
@@ -41,7 +41,7 @@ def main():
     parser.add_argument("--outfile", type=str, required=True)
     args = parser.parse_args()
     print(args,flush=True)
-    plot_tsne(args.root_dir, args.points_per_class, args.outfile)
+    plot_tsne(args.root_dir, args.outfile, args.points_per_class)
 
 
 if __name__=="__main__":

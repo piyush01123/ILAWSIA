@@ -45,7 +45,7 @@ def extract_features(model, device, dataloader, batch_size, dest_dir):
                 print("[INFO: {}] {}/{} Done.".format(time.strftime("%d-%b-%Y %H:%M:%S"), i*batch_size+len(batch), len(dataloader.dataset)), flush=True)
 
 
-def run_featurizer(root_dir, dest_dir, checkpoint, batch_size):
+def run_featurizer(root_dir, dest_dir, checkpoint, batch_size=64):
     dataset = CRC_Feat_Dataset(root_dir=root_dir)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 

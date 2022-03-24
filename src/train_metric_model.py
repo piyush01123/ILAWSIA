@@ -121,7 +121,8 @@ def val_epoch(model, dataloader, device, writer, epoch):
     return epoch_loss, embedding_db, label_db
 
 
-def train_triplet_loss_model(root_dir, checkpoint, batch_size, ckpt_dir, log_dir, num_epochs, learning_rate, save_every_epoch):
+def train_triplet_loss_model(root_dir, ckpt_dir="ckpt_met", log_dir="logs_met", save_every_epoch=False, \
+          checkpoint="", batch_size=64, num_epochs=50, learning_rate=1e-3):
     if checkpoint:
         assert os.path.isfile(checkpoint), "Provided checkpoint not found."
     os.makedirs(ckpt_dir, exist_ok=True)
@@ -185,8 +186,9 @@ def main():
     parser.add_argument("--save_every_epoch", default=False, action=store_true)
     args = parser.parse_args()
     print(args,flush=True)
-    train_triplet_loss_model(args.root_dir, args.checkpoint, args.batch_size, \
-            args.ckpt_dir, args.log_dir, args.num_epochs, args.learning_rate, args.save_every_epoch)
+    train_triplet_loss_model(root_dir=args.root_dir, ckpt_dir=args.ckpt_dir, log_dir=args.log_dir, \
+          save_every_epoch=args.save_every_epoch, checkpoint=args.checkpoint, batch_size=args.batch_size, \
+          num_epochs=args.num_epochs, learning_rate=args.learning_rate)
 
 
 
