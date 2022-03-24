@@ -122,7 +122,7 @@ def val_epoch(model, dataloader, device, writer, epoch):
     return epoch_loss, epoch_acc, report
 
 
-def train_classification_model(root_dir, checkpoint, batch_size, ckpt_dir, log_dir, num_epochs, learning_rate):
+def train_classification_model(root_dir, checkpoint, batch_size, ckpt_dir, log_dir, num_epochs, learning_rate, save_every_epoch):
     if checkpoint:
         assert os.path.isfile(checkpoint), "Provided checkpoint not found."
     os.makedirs(ckpt_dir, exist_ok=True)
@@ -157,8 +157,9 @@ def train_classification_model(root_dir, checkpoint, batch_size, ckpt_dir, log_d
     for epoch in range(num_epochs):
         model.train()
         loss_trn, acc_trn = train_epoch(model, train_dl, optimizer, device, writer, epoch)
-        ckpt_fp = os.path.join(ckpt_dir, "classifier_ep{}.pt".format(epoch))
-        torch.save(model.module.state_dict(), ckpt_fp)
+        if save_every_epoch or epoch==num_epochs-1:
+            ckpt_fp = os.path.join(ckpt_dir, "classifier_ep{}.pt".format(epoch))
+            torch.save(model.module.state_dict(), ckpt_fp)
         model.eval()
         with torch.no_grad():
             loss_val, acc_val, report = val_epoch(model, val_dl, device, writer, epoch)
@@ -177,10 +178,11 @@ def main():
     parser.add_argument("--learning_rate", type=float, default=1e-3)
     parser.add_argument("--ckpt_dir", type=str, default="checkpoints")
     parser.add_argument("--log_dir", type=str, default=os.path.join("logs", time))
+    parser.add_argument("--save_every_epoch", default=False, action=store_true)
     args = parser.parse_args()
     print(args,flush=True)
     train_classification_model(args.root_dir, args.checkpoint, args.batch_size, \
-            args.ckpt_dir, args.log_dir, args.num_epochs, args.learning_rate)
+            args.ckpt_dir, args.log_dir, args.num_epochs, args.learning_rate, args.save_every_epoch)
 
 
 
