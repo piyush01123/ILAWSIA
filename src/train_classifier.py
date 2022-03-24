@@ -79,7 +79,7 @@ def train_epoch(model, dataloader, optimizer, device, writer, epoch):
 
         writer.add_scalar("Loss_Train", loss.item(), epoch*len(dataloader)+i)
         writer.add_scalar("Acc_Train", acc_batch, epoch*len(dataloader)+i)
-        
+
         if i%100==0:
             print("[Train] Epoch: {}, Batch: {}".format(epoch, i), flush=True)
 
@@ -110,7 +110,7 @@ def val_epoch(model, dataloader, device, writer, epoch):
 
         if i%10==0:
             print("[Eval] Epoch: {}, Batch: {}".format(epoch, i), flush=True)
-        
+
     epoch_loss = running_loss/len(dataloader.dataset)
     epoch_acc = running_correct/len(dataloader.dataset)
     report = metrics.classification_report(y_gt, y_pred, digits=4, output_dict=True, \
@@ -162,7 +162,7 @@ def train_classification_model(root_dir, checkpoint, batch_size, ckpt_dir, log_d
         model.eval()
         with torch.no_grad():
             loss_val, acc_val, report = val_epoch(model, val_dl, device, writer, epoch)
-        stats_file = os.path.join(log_dir, "stats.json")
+        stats_file = os.path.join(log_dir, "training_prog_clf.json")
         update_stats_json(stats_file, epoch, loss_trn, acc_trn, loss_val, acc_val, report)
     wandb.finish()
 

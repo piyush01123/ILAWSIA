@@ -75,7 +75,7 @@ def train_epoch(model, dataloader, optimizer, device, writer, epoch):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        
+
         num_triplets = miner.num_triplets
         running_loss += loss.item() * num_triplets
         dataset_size += num_triplets
@@ -166,7 +166,7 @@ def train_triplet_loss_model(root_dir, checkpoint, batch_size, ckpt_dir, log_dir
             reference=embedding_db.cpu().detach().numpy(), query_labels=label_db.cpu().numpy(), \
             reference_labels=label_db.cpu().numpy(), embeddings_come_from_same_source=True)
 
-        stats_file = os.path.join(log_dir, "stats.json")
+        stats_file = os.path.join(log_dir, "training_prog_met.json")
         update_stats_json(stats_file, epoch, loss_trn, loss_val, acc_metrics)
     wandb.finish()
 
