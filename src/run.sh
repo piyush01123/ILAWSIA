@@ -37,6 +37,7 @@ python featurizer_512.py \
 
 mkdir -p results_before_trg results_after_trg
 
+# Results before trg
 python plot_tsne.py \
   --root_dir /ssd_scratch/cvit/piyush/Test512DB \
   --outfile results_before_trg/tsne_plot.png
@@ -45,23 +46,33 @@ python test_classifier.py \
   --root_dir /ssd_scratch/cvit/piyush/TestDB \
   --export_dir results_before_trg
 
+
+# TRG CLF
 python train_classifier.py \
   --root_dir /ssd_scratch/cvit/piyush/QueryDB \
   --ckpt_dir checkpoints \
   --log_dir logs
 
+
+# Results after trg CLF
 python test_classifier.py \
   --root_dir /ssd_scratch/cvit/piyush/TestDB \
   --export_dir results_after_trg \
   --checkpoint checkpoints/classifier_ep49.pt
 
+
+# TRG Metric model
 python train_metric_model.py \
   --root_dir /ssd_scratch/cvit/piyush/QueryDB \
   --ckpt_dir checkpoints_met \
   --log_dir logs_met
 
+# Results after trg metric model
+python featurizer_512.py \
+  --root_dir /ssd_scratch/cvit/piyush/TestDB \
+  --dest_dir /ssd_scratch/cvit/piyush/Test512DBTrained
+  --checkpoint checkpoints_met/triplet_model_ep49.pt
 
 python plot_tsne.py \
-  --root_dir /ssd_scratch/cvit/piyush/Test512DB \
-  --checkpoint checkpoints_met/triplet_model_ep49.pt \
+  --root_dir /ssd_scratch/cvit/piyush/Test512DBTrained \
   --outfile results_after_trg/tsne_plot.png
