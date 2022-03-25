@@ -178,6 +178,7 @@ def run_ilawsia(query_dir, search_dir, test_dir, db_dir, num_neighbors):
                    }
     N = len(search_files)
     samples_given_to_expert = sampler_dict[sampler_choice](predictions, entropies, near_indices, query_class_idx, N, K)
+    # Now we will move these samples from search_dir to query_dir. Then we will redo the the feedback loop
 
 
 
