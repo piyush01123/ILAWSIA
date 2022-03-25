@@ -17,14 +17,16 @@ import numpy as np
 import faiss
 from collections import Counter
 import time
+import utils
+import shutil
 
 
 NUM_CLASSES = 9
 
 
-def get_query_from_QE(root_dir, session):
+def get_query_from_QE(root_dir, session_id):
     classNames = sorted(os.listdir(root_dir))
-    class_idx = session%len(classNames)
+    class_idx = session_id % len(classNames)
     class_for_QE = classNames[class_idx]
 
     Q_embs = []
@@ -34,152 +36,8 @@ def get_query_from_QE(root_dir, session):
     Q_embs = np.stack(Q_embs)
     Q_avg = Q_embs.mean(axis=0)
 
-    print("Session={} Query class={} Num files for QE={}".format(session, class_for_QE, len(Q_embs)), flush=True)
+    print("Session={} Query class={} Num files for QE={}".format(session_id, class_for_QE, len(Q_embs)), flush=True)
     return Q_avg, class_for_QE, class_idx
-
-
-def calculate_retrieval_metrics(root_dir, num_neighbors=1000, k_values=[5,10,25]):
-    files = sorted(glob.glob(os.path.join(root_dir,'*','*.npy')))
-    random.seed(42)
-    random.shuffle(files)
-    labels = [file.split('/')[-2] for file in files]
-    search_files, query_files, search_labels, query_labels = train_test_split(files, labels, test_size=.4, random_state=42)
-    query_db, search_db = [], []
-    for fp in query_files: query_db.append(np.load(fp))
-    for fp in search_files: search_db.append(np.load(fp))
-    query_db, search_db = np.stack(query_db), np.stack(search_db)
-
-    res = faiss.StandardGpuResources()
-    index_flat = faiss.IndexFlatL2(search_db.shape[1])
-    search_db_index = faiss.index_cpu_to_gpu(res, 0, index_flat)
-    search_db_index.add(search_db)
-
-    distances, indices = search_db_index.search(query_db, num_neighbors)
-    pred = np.array(search_labels)[indices]
-    gt = np.array(query_labels)[:,None].repeat(num_neighbors,axis=1)
-    result = (pred==gt).astype(int)
-
-    counter = Counter(query_labels)
-    P_at_K = {"macro_avg":{}, "micro_avg":{}, "class_wise":{}}
-    for k in k_values:
-        result_each = result[:,:k].mean(axis=1)
-        P_at_K["micro_avg"][k] = result_each.mean()
-
-        score = {i: 0 for i in set(query_labels)}
-        for a,b in zip(query_labels, result_each): score[a]+=b
-        class_wise_p_at_k = {i:score[i]/counter[i] for i in set(query_labels)}
-        macro_avg_p_at_k = np.mean(list(class_wise_p_at_k.values()))
-        P_at_K["macro_avg"][k] = macro_avg_p_at_k
-        P_at_K["class_wise"][k] = class_wise_p_at_k
-
-    A = np.cumsum(result,axis=1)
-    B = np.arange(1,num_neighbors+1)[:,None].T.repeat(len(query_db),axis=0)
-    AP = [c[r.astype(bool)].mean() for c,r in zip(A/B,result)]
-    MAP = np.mean(AP)
-    metrics = {"P@K": P_at_K, "MAP": MAP}
-    return metrics
-
-
-def get_clf_output(root_dir, checkpoint, batch_size=64, K=5):
-    assert os.path.isfile(checkpoint), "checkpoint file missing."
-
-    from torch.utils.data import DataLoader
-    from torchvision import models
-    import torch.nn.functional as F
-    import torch.nn as nn
-    import torch
-
-    dataset = test_classifier.CRC_Feat_Dataset(root_dir=root_dir)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
-
-    resnet = models.resnet18(pretrained = True)
-    resnet.fc = nn.Linear(resnet.fc.in_features, NUM_CLASSES)
-    layers = [resnet.layer4[1], resnet.avgpool, nn.Flatten(), resnet.fc]
-    model = nn.Sequential(*layers)
-
-    state_dict = torch.load(checkpoint)
-    model.load_state_dict(state_dict)
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = nn.DataParallel(model).to(device)
-
-    model.eval()
-    predictions = []
-    entropies = []
-    with torch.no_grad():
-        for i, (batch,_,_) in enumerate(dataloader): # Note that we pretend we do not know the target
-            batch = batch.to(device)
-            output = model(batch)
-            prob = F.softmax(output, dim=1)
-            H_batch = - (prob * torch.log2(prob)).sum(axis=1)
-            preds_batch = output.argmax(dim=1)
-            predictions.extend(preds_batch.tolist())
-            entropies.extend(H_batch.tolist())
-            if i%100==0:
-                print("[INFO: {}] {}/{} Done.".format(time.strftime("%d-%b-%Y %H:%M:%S"), \
-                    i*batch_size+len(batch), len(dataloader.dataset)), flush=True)
-    return np.array(predictions), np.array(entropies)
-
-
-def run_ilawsia(query_dir, search_dir, test_dir, db_dir, num_neighbors):
-    train_classifier.train_classification_model(root_dir=query_dir, \
-            ckpt_dir="ckpt_clf_session_1_round_1", \
-            log_dir="logs_clf_session_1_round_1", \
-            save_every_epoch=False)
-    train_metric_model.train_triplet_loss_model(root_dir=query_dir, \
-            ckpt_dir="ckpt_met_session_1_round_1", \
-            log_dir="logs_met_session_1_round_1", \
-            save_every_epoch=False)
-    test_classifier.test_classifier_model(root_dir=test_dir, \
-            export_dir="result_session_1_round_1", \
-            checkpoint="ckpt_clf_session_1_round_1/classifier_ep49.pt")
-    featurizer_512.run_featurizer(root_dir=test_dir, \
-            dest_dir=os.path.join(db_dir, "testdb_session_1_round_1"), \
-            checkpoint="ckpt_met_session_1_round_1/triplet_model_ep49.pt")
-    plot_tsne.plot_tsne(root_dir=os.path.join(db_dir, "testdb_session_1_round_1"), \
-            outfile="result_session_1_round_1/tsne_plot.png")
-
-    featurizer_512.run_featurizer(root_dir=query_dir, \
-            dest_dir=os.path.join(db_dir, "querydb_session_1_round_1"), \
-            checkpoint="ckpt_met_session_1_round_1/triplet_model_ep49.pt")
-    featurizer_512.run_featurizer(root_dir=search_dir, \
-            dest_dir=os.path.join(db_dir, "searchdb_session_1_round_1"), \
-            checkpoint="ckpt_met_session_1_round_1/triplet_model_ep49.pt")
-
-
-
-
-    retrieval_metrics = calculate_retrieval_metrics(root_dir=os.path.join(db_dir, "testdb_session_1_round_1"))
-
-    query_emb, query_class, query_class_idx = get_query_from_QE(root_dir=os.path.join(db_dir, "querydb_session_1_round_1"), session=0)
-
-    search_files = sorted(glob.glob(os.path.join(db_dir, "searchdb_session_1_round_1",'*','*.npy')))
-    search_labels = [file.split('/')[-2] for file in search_files]
-    search_db = []
-    for fp in search_files:
-        search_db.append(np.load(fp))
-    search_db = np.stack(search_db)
-
-    neigh = NearestNeighbors(n_neighbors=len(search_db))
-    neigh.fit(search_db)
-    distances, near_indices = neigh.kneighbors([query_emb],len(search_db))
-    distances, near_indices = distances[0], indices[0]
-
-    # calculate probs matrix of shape (n_search, n_classes). Assume you do not know the labels. So cannot get accuracy/loss
-    predictions, entropies = get_clf_output(root_dir=search_dir, checkpoint="ckpt_clf_session_1_round_1/classifier_ep49.pt")
-
-    # sampling strategies: entropy, random, front-mid-end, cnfp, hybrid
-
-    sampler_dict = {"entropy": entropy_sampler, \
-                    "random": random_sampler, \
-                    "front_mid_end": front_mid_end_sampler, \
-                    "cnfp": cnfp_sampler, \
-                    "hybrid": hybrid_sampler"
-                   }
-    N = len(search_files)
-    samples_given_to_expert = sampler_dict[sampler_choice](predictions, entropies, near_indices, query_class_idx, N, K)
-    # Now we will move these samples from search_dir to query_dir. Then we will redo the the feedback loop
-
 
 
 def entropy_sampler(predictions, entropies, near_indices, query_class_idx, N, K):
@@ -212,15 +70,134 @@ def hybrid_sampler(predictions, entropies, near_indices, query_class_idx, N, K):
     return np.random.choice(np.unique(np.concatenate([A,B,C])),K, replace=False)
 
 
+def train_models(root_dir, ckpt_clf_dir, ckpt_met_dir, log_clf_dir, log_met_dir, save_every_epoch):
+    files = glob.glob(os.path.join(root_dir,'*','*.npy'))
+    labels = [file.split('/')[-2] for file in files]
+    train_data_stats = Counter(labels)
+    print(train_data_stats, flush=True)
+
+    train_classifier.train_classification_model(root_dir=root_dir, \
+            ckpt_dir=ckpt_clf_dir, log_dir=log_clf_dir, \
+            save_every_epoch=save_every_epoch)
+    train_metric_model.train_triplet_loss_model(root_dir=query_dir, \
+            ckpt_dir=ckpt_met_dir, \
+            log_dir=log_met_dir, \
+            save_every_epoch=save_every_epoch)
+
+
+def test_performances(root_dir, curr_test_db_dir, export_dir, curr_ckpt_clf_dir, curr_ckpt_met_dir, last_epoch):
+    test_classifier.test_classifier_model(root_dir=test_dir, export_dir=export_dir, \
+            checkpoint = os.path.join(curr_ckpt_clf_dir,"classifier_ep{}.pt".format(last_epoch)))
+    featurizer_512.run_featurizer(root_dir=test_dir, dest_dir=curr_test_db_dir,\
+            checkpoint = os.path.join(curr_ckpt_met_dir, "triplet_model_ep{}.pt".format(last_epoch)))
+    plot_tsne.plot_tsne(root_dir=curr_test_db_dir, outfile=os.path.join(export_dir,"tsne_plot.png"))
+    retrieval_metrics = utils.calculate_retrieval_metrics(root_dir=curr_test_db_dir)
+    utils.write_json(retrieval_metrics, os.path.join(export_dir,"retrieval_metrics.json"))
+
+
+def get_samples_to_label_from_expert(curr_search_db_dir, query_emb, search_dir, checkpoint, sampler_choice, K):
+    search_files = sorted(glob.glob(os.path.join(curr_search_db_dir,'*','*.npy')))
+    N = len(search_files)
+    search_db = []
+    for fp in search_files:
+        search_db.append(np.load(fp))
+    search_db = np.stack(search_db)
+
+    neigh = NearestNeighbors(n_neighbors=N)
+    neigh.fit(search_db)
+    _, near_indices = neigh.kneighbors([query_emb], N)
+    near_indices = near_indices[0]
+
+    # calculate probs matrix of shape (n_search, n_classes). Assume you do not know the labels. So cannot get accuracy/loss
+    predictions, entropies = utils.get_clf_output(root_dir=search_dir, checkpoint=checkpoint)
+
+    # sampling strategies: entropy, random, front-mid-end, cnfp, hybrid
+    sampler_dict = {"entropy": entropy_sampler, "random": random_sampler, "front_mid_end": \
+                    front_mid_end_sampler, "cnfp": cnfp_sampler, "hybrid": hybrid_sampler}
+    sampler = sampler_dict[sampler_choice]
+    samples_given_to_expert = sampler(predictions, entropies, near_indices, query_class_idx, N, K)
+    return samples_given_to_expert
+
+
+def simulate_expert_annotation(query_dir, search_dir, samples_given_to_expert, query_class):
+    # This simulates the situation when the expert gives the label of images given to  him
+    # There could also be another setting where the expert just says whether or not it matches the query image label
+    # In the 2nd case for non-matching case, we do not know the correct label, so they could be put into whicover class has max prob
+    files = np.array(sorted(glob.glob(os.path.join(search_dir, query_class,'*.npy'))))
+    files = files[samples_given_to_expert]
+    for file in files:
+        shutil.move(file, os.path.join(query_dir, query_class))
+
+
+def run_ilawsia(query_dir, search_dir, test_dir, temp_dbdir, num_sessions, rounds_per_session, \
+                expert_labels_per_round, sampler_choice, last_epoch):
+    """
+    query_dir,search_dir,test_dir contains frozen (512,7,7) embeddings which are calculated only once.
+    These are already created before running this script.
+    temp_dbdir contains new DBs of (512,) vectors created during each session+round
+    """
+
+    # We will use these variables to store the current locations of 512-dim DBs
+    curr_query_db_dir = os.path.join(temp_dbdir, "query_db_before_feedback")
+    curr_search_db_dir = os.path.join(temp_dbdir, "search_db_before_feedback")
+    curr_test_db_dir = os.path.join(temp_dbdir, "test_db_before_feedback")
+    curr_ckpt_clf_dir = "ckpt_clf_before_feedback"
+    curr_ckpt_met_dir = "ckpt_met_before_feedback"
+    curr_log_clf_dir = "ckpt_clf_before_feedback"
+    curr_log_met_dir = "ckpt_met_before_feedback"
+    curr_result_dir = "result_before_feedback"
+
+    # Train classifier and metric models from initial query set (10 files per class)
+    train_models(root_dir=query_dir, ckpt_clf_dir=curr_ckpt_clf_dir, ckpt_met_dir=curr_ckpt_met_dir, \
+                 log_clf_dir=curr_log_clf_dir, log_met_dir=curr_log_met_dir, save_every_epoch=False)
+
+    # Measure performaance from initial model
+    test_performances(root_dir=test_dir, curr_test_db_dir=curr_test_db_dir, export_dir=curr_result_dir, \
+                 curr_ckpt_clf_dir=curr_ckpt_clf_dir, curr_ckpt_met_dir=curr_ckpt_met_dir,last_epoch=last_epoch)
+
+    # For each session+round, get Query and Search 512-d features from latest checkpoint.
+    # Then run sampler, move stuff from search to query, re-train models and measure performances.
+    for session_id in range(num_sessions):
+        for round in range(rounds_per_session):
+            print("Session: {} Round: {}".format(session_id, round), flush=True)
+            featurizer_512.run_featurizer(root_dir=query_dir, dest_dir=curr_query_db_dir, \
+                    checkpoint=os.path.join(curr_ckpt_met_dir,"triplet_model_ep{}.pt".format(last_epoch)))
+            featurizer_512.run_featurizer(root_dir=search_dir,dest_dir=curr_search_db_dir, \
+                    checkpoint=os.path.join(curr_ckpt_met_dir, "triplet_model_ep{}.pt".format(last_epoch)))
+            query_emb, query_class, query_class_idx = get_query_from_QE(root_dir=curr_query_db_dir, session_id=session_id)
+            samples_given_to_expert = get_samples_to_label_from_expert(curr_search_db_dir, query_emb, \
+                    search_dir, os.path.join(curr_ckpt_clf_dir,"classifier_ep{}.pt".format(last_epoch)), \
+                    sampler_choice, expert_labels_per_round)
+            simulate_expert_annotation(query_dir, search_dir, samples_given_to_expert, query_class)
+
+            curr_query_db_dir = os.path.join(temp_dbdir, "query_db_sess_{}_round_{}".format(session_id,round))
+            curr_search_db_dir = os.path.join(temp_dbdir, "search_db_sess_{}_round_{}".format(session_id,round))
+            curr_test_db_dir = os.path.join(temp_dbdir, "test_db_sess_{}_round_{}".format(session_id,round))
+            curr_ckpt_clf_dir = "ckpt_clf_sess_{}_round_{}/classifier_ep{}.pt".format(session_id,round,last_epoch)
+            curr_ckpt_met_dir = "ckpt_met_sess_{}_round_{}/triplet_model_ep{}.pt".format(session_id,round,last_epoch)
+            curr_result_dir = "result_sess_{}_round_{}".format(session_id,round)
+
+            train_models(root_dir=query_dir, ckpt_clf_dir=curr_ckpt_clf_dir, ckpt_met_dir=curr_ckpt_met_dir, \
+                         log_clf_dir=curr_log_clf_dir, log_met_dir=curr_log_met_dir, save_every_epoch=False)
+            test_performances(root_dir=test_dir, curr_test_db_dir=curr_test_db_dir, export_dir=curr_result_dir, \
+                         curr_ckpt_clf_dir=curr_ckpt_clf_dir, curr_ckpt_met_dir=curr_ckpt_met_dir,last_epoch=last_epoch)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run ILAWSIA")
     parser.add_argument("--query_dir", type=str, required=True)
     parser.add_argument("--search_dir", type=str, required=True)
     parser.add_argument("--test_dir", type=str, required=True)
-    parser.add_argument("--db_dir", type=str, required=True)
+    parser.add_argument("--temp_dbdir", type=str, required=True)
+    parser.add_argument("--num_sessions", type=int, required=True)
+    parser.add_argument("--rounds_per_session", type=int, required=True)
+    parser.add_argument("--expert_labels_per_round", type=int, required=True)
+    parser.add_argument("--sampler_choice", type=str, required=True)
+    parser.add_argument("--last_epoch", type=int, default=49)
     args = parser.parse_args()
     print(args,flush=True)
-    run_ilawsia(args.query_dir, args.search_dir, args.test_dir, args.db_dir)
+    run_ilawsia(args.query_dir, args.search_dir, args.test_dir, args.temp_dbdir, args.num_sessions, \
+            args.rounds_per_session, args.expert_labels_per_round, args.sampler_choice, args.last_epoch)
 
 
 if __name__=="__main__":
@@ -228,7 +205,12 @@ if __name__=="__main__":
 
 
 #####
-query_dir = "/ssd_scratch/cvit/piyush/QueryDB"
-search_dir = "/ssd_scratch/cvit/piyush/SearchDB"
-test_dir = "/ssd_scratch/cvit/piyush/TestDB"
-db_dir = "/ssd_scratch/cvit/piyush/EmbDB"
+# query_dir = "/ssd_scratch/cvit/piyush/QueryDB"
+# search_dir = "/ssd_scratch/cvit/piyush/SearchDB"
+# test_dir = "/ssd_scratch/cvit/piyush/TestDB"
+# temp_dbdir = "/ssd_scratch/cvit/piyush/EmbDB"
+# num_sessions = 1000
+# rounds_per_session = 5
+# expert_labels_per_round = 10
+# sampler_choice = "cnfp"
+# last_epoch=49
