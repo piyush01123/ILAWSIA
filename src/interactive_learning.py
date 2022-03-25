@@ -12,6 +12,7 @@ import argparse
 import os
 import glob
 from sklearn.model_selection import train_test_split
+from sklearn.neighbors import NearestNeighbors
 import random
 import numpy as np
 import faiss
@@ -74,32 +75,33 @@ def train_models(root_dir, ckpt_clf_dir, ckpt_met_dir, log_clf_dir, log_met_dir,
     files = glob.glob(os.path.join(root_dir,'*','*.npy'))
     labels = [file.split('/')[-2] for file in files]
     train_data_stats = Counter(labels)
+    train_data_stats = {k: train_data_stats[k] for k in sorted(train_data_stats.keys())}
     print(train_data_stats, flush=True)
 
     train_classifier.train_classification_model(root_dir=root_dir, \
             ckpt_dir=ckpt_clf_dir, log_dir=log_clf_dir, \
             save_every_epoch=save_every_epoch)
-    train_metric_model.train_triplet_loss_model(root_dir=query_dir, \
+    train_metric_model.train_triplet_loss_model(root_dir=root_dir, \
             ckpt_dir=ckpt_met_dir, \
             log_dir=log_met_dir, \
             save_every_epoch=save_every_epoch)
 
 
 def test_performances(root_dir, curr_test_db_dir, export_dir, curr_ckpt_clf_dir, curr_ckpt_met_dir, last_epoch):
-    test_classifier.test_classifier_model(root_dir=test_dir, export_dir=export_dir, \
+    test_classifier.test_classifier_model(root_dir=root_dir, export_dir=export_dir, \
             checkpoint = os.path.join(curr_ckpt_clf_dir,"classifier_ep{}.pt".format(last_epoch)))
-    featurizer_512.run_featurizer(root_dir=test_dir, dest_dir=curr_test_db_dir,\
+    featurizer_512.run_featurizer(root_dir=root_dir, dest_dir=curr_test_db_dir,\
             checkpoint = os.path.join(curr_ckpt_met_dir, "triplet_model_ep{}.pt".format(last_epoch)))
     plot_tsne.plot_tsne(root_dir=curr_test_db_dir, outfile=os.path.join(export_dir,"tsne_plot.png"))
     retrieval_metrics = utils.calculate_retrieval_metrics(root_dir=curr_test_db_dir)
     utils.write_json(retrieval_metrics, os.path.join(export_dir,"retrieval_metrics.json"))
 
 
-def get_samples_to_label_from_expert(curr_search_db_dir, query_emb, search_dir, checkpoint, sampler_choice, K):
-    search_files = sorted(glob.glob(os.path.join(curr_search_db_dir,'*','*.npy')))
-    N = len(search_files)
+def get_samples_to_label_from_expert(curr_search_db_dir, query_emb, search_dir, checkpoint, sampler_choice, query_class_idx, K):
+    search_db_files = sorted(glob.glob(os.path.join(curr_search_db_dir,'*','*.npy')))
+    N = len(search_db_files)
     search_db = []
-    for fp in search_files:
+    for fp in search_db_files:
         search_db.append(np.load(fp))
     search_db = np.stack(search_db)
 
@@ -115,18 +117,18 @@ def get_samples_to_label_from_expert(curr_search_db_dir, query_emb, search_dir, 
     sampler_dict = {"entropy": entropy_sampler, "random": random_sampler, "front_mid_end": \
                     front_mid_end_sampler, "cnfp": cnfp_sampler, "hybrid": hybrid_sampler}
     sampler = sampler_dict[sampler_choice]
-    samples_given_to_expert = sampler(predictions, entropies, near_indices, query_class_idx, N, K)
-    return samples_given_to_expert
+    file_indices = sampler(predictions, entropies, near_indices, query_class_idx, N, K)
+    search_dir_files = np.array(sorted(glob.glob(os.path.join(search_dir,'*','*.npy'))))
+    return search_dir_files[file_indices]
 
 
 def simulate_expert_annotation(query_dir, search_dir, samples_given_to_expert, query_class):
     # This simulates the situation when the expert gives the label of images given to  him
     # There could also be another setting where the expert just says whether or not it matches the query image label
     # In the 2nd case for non-matching case, we do not know the correct label, so they could be put into whicover class has max prob
-    files = np.array(sorted(glob.glob(os.path.join(search_dir, query_class,'*.npy'))))
-    files = files[samples_given_to_expert]
-    for file in files:
-        shutil.move(file, os.path.join(query_dir, query_class))
+    for file in samples_given_to_expert:
+        className = file.split('/')[-2]
+        shutil.move(file, os.path.join(query_dir, className))
 
 
 def run_ilawsia(query_dir, search_dir, test_dir, temp_dbdir, num_sessions, rounds_per_session, \
@@ -160,21 +162,25 @@ def run_ilawsia(query_dir, search_dir, test_dir, temp_dbdir, num_sessions, round
     for session_id in range(num_sessions):
         for round in range(rounds_per_session):
             print("Session: {} Round: {}".format(session_id, round), flush=True)
-            featurizer_512.run_featurizer(root_dir=query_dir, dest_dir=curr_query_db_dir, \
-                    checkpoint=os.path.join(curr_ckpt_met_dir,"triplet_model_ep{}.pt".format(last_epoch)))
-            featurizer_512.run_featurizer(root_dir=search_dir,dest_dir=curr_search_db_dir, \
-                    checkpoint=os.path.join(curr_ckpt_met_dir, "triplet_model_ep{}.pt".format(last_epoch)))
-            query_emb, query_class, query_class_idx = get_query_from_QE(root_dir=curr_query_db_dir, session_id=session_id)
-            samples_given_to_expert = get_samples_to_label_from_expert(curr_search_db_dir, query_emb, \
-                    search_dir, os.path.join(curr_ckpt_clf_dir,"classifier_ep{}.pt".format(last_epoch)), \
-                    sampler_choice, expert_labels_per_round)
-            simulate_expert_annotation(query_dir, search_dir, samples_given_to_expert, query_class)
 
             curr_query_db_dir = os.path.join(temp_dbdir, "query_db_sess_{}_round_{}".format(session_id,round))
             curr_search_db_dir = os.path.join(temp_dbdir, "search_db_sess_{}_round_{}".format(session_id,round))
             curr_test_db_dir = os.path.join(temp_dbdir, "test_db_sess_{}_round_{}".format(session_id,round))
-            curr_ckpt_clf_dir = "ckpt_clf_sess_{}_round_{}/classifier_ep{}.pt".format(session_id,round,last_epoch)
-            curr_ckpt_met_dir = "ckpt_met_sess_{}_round_{}/triplet_model_ep{}.pt".format(session_id,round,last_epoch)
+
+            featurizer_512.run_featurizer(root_dir=query_dir, dest_dir=curr_query_db_dir, \
+                    checkpoint=os.path.join(curr_ckpt_met_dir,"triplet_model_ep{}.pt".format(last_epoch)))
+            featurizer_512.run_featurizer(root_dir=search_dir,dest_dir=curr_search_db_dir, \
+                    checkpoint=os.path.join(curr_ckpt_met_dir, "triplet_model_ep{}.pt".format(last_epoch)))
+
+            query_emb, query_class, query_class_idx = get_query_from_QE(root_dir=curr_query_db_dir, session_id=session_id)
+            samples_given_to_expert = get_samples_to_label_from_expert(curr_search_db_dir, query_emb, \
+                    search_dir, os.path.join(curr_ckpt_clf_dir,"classifier_ep{}.pt".format(last_epoch)), \
+                    sampler_choice, query_class_idx, expert_labels_per_round)
+            print("samples_given_to_expert", samples_given_to_expert)
+            simulate_expert_annotation(query_dir, search_dir, samples_given_to_expert, query_class)
+
+            curr_ckpt_clf_dir = "ckpt_clf_sess_{}_round_{}".format(session_id,round)
+            curr_ckpt_met_dir = "ckpt_met_sess_{}_round_{}".format(session_id,round)
             curr_result_dir = "result_sess_{}_round_{}".format(session_id,round)
 
             train_models(root_dir=query_dir, ckpt_clf_dir=curr_ckpt_clf_dir, ckpt_met_dir=curr_ckpt_met_dir, \
