@@ -1,5 +1,3 @@
-
-
 #!/bin/bash
 #SBATCH -A delta_one
 #SBATCH -n 20
