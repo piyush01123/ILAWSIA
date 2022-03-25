@@ -61,6 +61,7 @@ def run_test(model, device, dataloader, batch_size, dest_dir):
     fh = open(os.path.join(dest_dir, 'conf.mat'), 'w')
     fh.write(metrics.confusion_matrix(y_gt, y_pred, labels=range(NUM_CLASSES)).__str__())
     fh.close()
+    return report
 
 
 def test_classifier_model(root_dir, export_dir, checkpoint, batch_size=64):
@@ -80,8 +81,9 @@ def test_classifier_model(root_dir, export_dir, checkpoint, batch_size=64):
     model = nn.DataParallel(model).to(device)
 
     os.makedirs(export_dir, exist_ok=True)
-    run_test(model, device, dataloader, batch_size, export_dir)
+    report = run_test(model, device, dataloader, batch_size, export_dir)
     print("FIN.", flush=True)
+    return report
 
 
 def main():

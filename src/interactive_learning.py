@@ -88,13 +88,14 @@ def train_models(root_dir, ckpt_clf_dir, ckpt_met_dir, log_clf_dir, log_met_dir,
 
 
 def test_performances(root_dir, curr_test_db_dir, export_dir, curr_ckpt_clf_dir, curr_ckpt_met_dir, last_epoch):
-    test_classifier.test_classifier_model(root_dir=root_dir, export_dir=export_dir, \
+    classification_metrics = test_classifier.test_classifier_model(root_dir=root_dir, export_dir=export_dir, \
             checkpoint = os.path.join(curr_ckpt_clf_dir,"classifier_ep{}.pt".format(last_epoch)))
     featurizer_512.run_featurizer(root_dir=root_dir, dest_dir=curr_test_db_dir,\
             checkpoint = os.path.join(curr_ckpt_met_dir, "triplet_model_ep{}.pt".format(last_epoch)))
     plot_tsne.plot_tsne(root_dir=curr_test_db_dir, outfile=os.path.join(export_dir,"tsne_plot.png"))
     retrieval_metrics = utils.calculate_retrieval_metrics(root_dir=curr_test_db_dir)
-    utils.write_json(retrieval_metrics, os.path.join(export_dir,"retrieval_metrics.json"))
+    metrics = {"classification_metrics": classification_metrics, "retrieval_metrics": retrieval_metrics}
+    return metrics
 
 
 def get_samples_to_label_from_expert(curr_search_db_dir, query_emb, search_dir, checkpoint, sampler_choice, query_class_idx, K):
@@ -149,13 +150,16 @@ def run_ilawsia(query_dir, search_dir, test_dir, temp_dbdir, num_sessions, round
     curr_log_met_dir = os.path.join(ckpt_dir,"ckpt_met_before_feedback")
     curr_result_dir = os.path.join(result_dir,"result_before_feedback")
 
+    all_results_json = os.path.join(result_dir,"all_results.json")
+
     # Train classifier and metric models from initial query set (10 files per class)
     train_models(root_dir=query_dir, ckpt_clf_dir=curr_ckpt_clf_dir, ckpt_met_dir=curr_ckpt_met_dir, \
                  log_clf_dir=curr_log_clf_dir, log_met_dir=curr_log_met_dir, save_every_epoch=False)
 
     # Measure performaance from initial model
-    test_performances(root_dir=test_dir, curr_test_db_dir=curr_test_db_dir, export_dir=curr_result_dir, \
+    metrics = test_performances(root_dir=test_dir, curr_test_db_dir=curr_test_db_dir, export_dir=curr_result_dir, \
                  curr_ckpt_clf_dir=curr_ckpt_clf_dir, curr_ckpt_met_dir=curr_ckpt_met_dir,last_epoch=last_epoch)
+    update_json({"session_id":-1,"round":-1, "metrics":metrics}, all_results_json)
 
     # For each session+round, get Query and Search 512-d features from latest checkpoint.
     # Then run sampler, move stuff from search to query, re-train models and measure performances.
@@ -185,8 +189,9 @@ def run_ilawsia(query_dir, search_dir, test_dir, temp_dbdir, num_sessions, round
 
             train_models(root_dir=query_dir, ckpt_clf_dir=curr_ckpt_clf_dir, ckpt_met_dir=curr_ckpt_met_dir, \
                          log_clf_dir=curr_log_clf_dir, log_met_dir=curr_log_met_dir, save_every_epoch=False)
-            test_performances(root_dir=test_dir, curr_test_db_dir=curr_test_db_dir, export_dir=curr_result_dir, \
+            metrics = test_performances(root_dir=test_dir, curr_test_db_dir=curr_test_db_dir, export_dir=curr_result_dir, \
                          curr_ckpt_clf_dir=curr_ckpt_clf_dir, curr_ckpt_met_dir=curr_ckpt_met_dir,last_epoch=last_epoch)
+            update_json({"session_id":session_id, "round":round, "metrics":metrics}, all_results_json)
 
 
 def main():

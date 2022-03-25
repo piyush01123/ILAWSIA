@@ -20,9 +20,14 @@ import json
 NUM_CLASSES = 9
 
 
-def write_json(dict, json_file):
+def update_json(dict, json_file):
+    curr_list = []
+    if os.path.isfile(json_file):
+        fh = open(json_file,'r')
+        curr_list.extend(json.load(fh))
     fh = open(json_file, 'w')
-    json.dump(dict, fh, indent=4)
+    curr_list.append(dict)
+    json.dump(curr_list, fh, indent=4)
     fh.close()
 
 
