@@ -132,7 +132,7 @@ def simulate_expert_annotation(query_dir, search_dir, samples_given_to_expert, q
 
 
 def run_ilawsia(query_dir, search_dir, test_dir, temp_dbdir, num_sessions, rounds_per_session, \
-                expert_labels_per_round, sampler_choice, last_epoch):
+                expert_labels_per_round, sampler_choice, last_epoch, ckpt_dir, result_dir):
     """
     query_dir,search_dir,test_dir contains frozen (512,7,7) embeddings which are calculated only once.
     These are already created before running this script.
@@ -143,11 +143,11 @@ def run_ilawsia(query_dir, search_dir, test_dir, temp_dbdir, num_sessions, round
     curr_query_db_dir = os.path.join(temp_dbdir, "query_db_before_feedback")
     curr_search_db_dir = os.path.join(temp_dbdir, "search_db_before_feedback")
     curr_test_db_dir = os.path.join(temp_dbdir, "test_db_before_feedback")
-    curr_ckpt_clf_dir = "ckpt_clf_before_feedback"
-    curr_ckpt_met_dir = "ckpt_met_before_feedback"
-    curr_log_clf_dir = "ckpt_clf_before_feedback"
-    curr_log_met_dir = "ckpt_met_before_feedback"
-    curr_result_dir = "result_before_feedback"
+    curr_ckpt_clf_dir = os.path.join(ckpt_dir,"ckpt_clf_before_feedback")
+    curr_ckpt_met_dir = os.path.join(ckpt_dir,"ckpt_met_before_feedback")
+    curr_log_clf_dir = os.path.join(ckpt_dir,"ckpt_clf_before_feedback")
+    curr_log_met_dir = os.path.join(ckpt_dir,"ckpt_met_before_feedback")
+    curr_result_dir = os.path.join(result_dir,"result_before_feedback")
 
     # Train classifier and metric models from initial query set (10 files per class)
     train_models(root_dir=query_dir, ckpt_clf_dir=curr_ckpt_clf_dir, ckpt_met_dir=curr_ckpt_met_dir, \
@@ -179,9 +179,9 @@ def run_ilawsia(query_dir, search_dir, test_dir, temp_dbdir, num_sessions, round
             print("samples_given_to_expert", samples_given_to_expert)
             simulate_expert_annotation(query_dir, search_dir, samples_given_to_expert, query_class)
 
-            curr_ckpt_clf_dir = "ckpt_clf_sess_{}_round_{}".format(session_id,round)
-            curr_ckpt_met_dir = "ckpt_met_sess_{}_round_{}".format(session_id,round)
-            curr_result_dir = "result_sess_{}_round_{}".format(session_id,round)
+            curr_ckpt_clf_dir = os.path.join(ckpt_dir,"ckpt_clf_sess_{}_round_{}".format(session_id,round))
+            curr_ckpt_met_dir = os.path.join(ckpt_dir,"ckpt_met_sess_{}_round_{}".format(session_id,round))
+            curr_result_dir = os.path.join(result_dir,"result_sess_{}_round_{}".format(session_id,round))
 
             train_models(root_dir=query_dir, ckpt_clf_dir=curr_ckpt_clf_dir, ckpt_met_dir=curr_ckpt_met_dir, \
                          log_clf_dir=curr_log_clf_dir, log_met_dir=curr_log_met_dir, save_every_epoch=False)
@@ -200,10 +200,13 @@ def main():
     parser.add_argument("--expert_labels_per_round", type=int, required=True)
     parser.add_argument("--sampler_choice", type=str, required=True)
     parser.add_argument("--last_epoch", type=int, default=49)
+    parser.add_argument("--ckpt_dir", type=str, required=True)
+    parser.add_argument("--result_dir", type=str, required=True)
     args = parser.parse_args()
     print(args,flush=True)
     run_ilawsia(args.query_dir, args.search_dir, args.test_dir, args.temp_dbdir, args.num_sessions, \
-            args.rounds_per_session, args.expert_labels_per_round, args.sampler_choice, args.last_epoch)
+            args.rounds_per_session, args.expert_labels_per_round, args.sampler_choice, args.last_epoch, \
+            args.ckpt_dir, args.result_dir)
 
 
 if __name__=="__main__":
@@ -215,6 +218,8 @@ if __name__=="__main__":
 # search_dir = "/ssd_scratch/cvit/piyush/SearchDB"
 # test_dir = "/ssd_scratch/cvit/piyush/TestDB"
 # temp_dbdir = "/ssd_scratch/cvit/piyush/EmbDB"
+# ckpt_dir = "/ssd_scratch/cvit/piyush/EmbDB"
+# result_dir = "results"
 # num_sessions = 1000
 # rounds_per_session = 5
 # expert_labels_per_round = 10
