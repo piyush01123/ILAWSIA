@@ -159,7 +159,7 @@ def run_ilawsia(query_dir, search_dir, test_dir, temp_dbdir, num_sessions, round
     # Measure performaance from initial model
     metrics = test_performances(root_dir=test_dir, curr_test_db_dir=curr_test_db_dir, export_dir=curr_result_dir, \
                  curr_ckpt_clf_dir=curr_ckpt_clf_dir, curr_ckpt_met_dir=curr_ckpt_met_dir,last_epoch=last_epoch)
-    update_json({"session_id":-1,"round":-1, "metrics":metrics}, all_results_json)
+    utils.update_json({"session_id":-1,"round":-1, "metrics":metrics}, all_results_json)
 
     # For each session+round, get Query and Search 512-d features from latest checkpoint.
     # Then run sampler, move stuff from search to query, re-train models and measure performances.
