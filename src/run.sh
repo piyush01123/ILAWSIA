@@ -19,31 +19,32 @@ temp_dbdir=/ssd_scratch/cvit/piyush/ILAWSIA_EmbDB_$timestamp
 
 mkdir -p $result_dir $ckpt_dir $log_dir $temp_dbdir
 
+
 for sampler_choice in entropy random front_mid_end cnfp hybrid
 do
   rm -rf /ssd_scratch/cvit/piyush/*Frozen
   python resnet_featurizer.py \
-    --root_dir /ssd_scratch/cvit/piyush/QuerySet \
-    --dest_dir /ssd_scratch/cvit/piyush/QueryDBFrozen
+			--root_dir /ssd_scratch/cvit/piyush/QuerySet \
+			--dest_dir /ssd_scratch/cvit/piyush/QueryDBFrozen
 
   python resnet_featurizer.py \
-    --root_dir /ssd_scratch/cvit/piyush/SearchSet \
-    --dest_dir /ssd_scratch/cvit/piyush/SearchDBFrozen
+			--root_dir /ssd_scratch/cvit/piyush/SearchSet \
+			--dest_dir /ssd_scratch/cvit/piyush/SearchDBFrozen
 
   python resnet_featurizer.py \
-    --root_dir /ssd_scratch/cvit/piyush/TestSet \
-    --dest_dir /ssd_scratch/cvit/piyush/TestDBFrozen
+			--root_dir /ssd_scratch/cvit/piyush/TestSet \
+			--dest_dir /ssd_scratch/cvit/piyush/TestDBFrozen
 
   python interactive_learning.py \
-    --query_dir /ssd_scratch/cvit/piyush/QueryDBFrozen \
-  	--search_dir /ssd_scratch/cvit/piyush/SearchDBFrozen \
-  	--test_dir /ssd_scratch/cvit/piyush/TestDBFrozen \
-  	--temp_dbdir temp_dbdir/EmbDB_$sampler_choice \
-  	--num_sessions 1000 \
-  	--rounds_per_session 5 \
-  	--expert_labels_per_round 10 \
-  	--sampler_choice $sampler_choice \
-    --ckpt_dir $ckpt_dir/ckpt_$sampler_choice \
-    --result_dir $result_dir/results_$sampler_choice \
-    --log_dir $log_dir/logs_$sampler_choice
+			--query_dir /ssd_scratch/cvit/piyush/QueryDBFrozen \
+			--search_dir /ssd_scratch/cvit/piyush/SearchDBFrozen \
+			--test_dir /ssd_scratch/cvit/piyush/TestDBFrozen \
+			--temp_dbdir $temp_dbdir/EmbDB_$sampler_choice \
+			--num_sessions 1000 \
+			--rounds_per_session 5 \
+			--expert_labels_per_round 10 \
+			--sampler_choice $sampler_choice \
+			--ckpt_dir $ckpt_dir/ckpt_$sampler_choice \
+			--result_dir $result_dir/results_$sampler_choice \
+			--log_dir $log_dir/logs_$sampler_choice
 done
