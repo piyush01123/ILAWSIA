@@ -7,8 +7,17 @@
 ##SBATCH --mail-type=END
 
 
+rm -rf /ssd_scratch/cvit/piyush
 mkdir -p /ssd_scratch/cvit/piyush
 rsync -aPz ada:/share3/delta_one/CRC/ /ssd_scratch/cvit/piyush/
+
+timestamp=`date +%s`
+result_dir=ILAWSIA_results_$timestamp
+ckpt_dir=/ssd_scratch/cvit/piyush/ILAWSIA_ckpt_$timestamp
+log_dir=ILAWSIA_logs_$timestamp
+temp_dbdir=/ssd_scratch/cvit/piyush/ILAWSIA_EmbDB_$timestamp
+
+mkdir -p $result_dir $ckpt_dir $log_dir $temp_dbdir
 
 for sampler_choice in entropy random front_mid_end cnfp hybrid
 do
@@ -29,11 +38,12 @@ do
     --query_dir /ssd_scratch/cvit/piyush/QueryDBFrozen \
   	--search_dir /ssd_scratch/cvit/piyush/SearchDBFrozen \
   	--test_dir /ssd_scratch/cvit/piyush/TestDBFrozen \
-  	--temp_dbdir /ssd_scratch/cvit/piyush/EmbDB_`date +%s` \
+  	--temp_dbdir temp_dbdir/EmbDB_$sampler_choice \
   	--num_sessions 1000 \
   	--rounds_per_session 5 \
   	--expert_labels_per_round 10 \
   	--sampler_choice $sampler_choice \
-    --ckpt_dir /ssd_scratch/cvit/piyush/ckpt_$sampler_choice \
-    --result_dir results_$sampler_choice
+    --ckpt_dir $ckpt_dir/ckpt_$sampler_choice \
+    --result_dir $result_dir/results_$sampler_choice \
+    --log_dir $log_dir/logs$sampler_choice
 done
