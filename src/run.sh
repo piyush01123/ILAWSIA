@@ -45,5 +45,5 @@ do
   	--sampler_choice $sampler_choice \
     --ckpt_dir $ckpt_dir/ckpt_$sampler_choice \
     --result_dir $result_dir/results_$sampler_choice \
-    --log_dir $log_dir/logs$sampler_choice
+    --log_dir $log_dir/logs_$sampler_choice
 done
