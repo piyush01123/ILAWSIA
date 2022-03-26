@@ -44,8 +44,10 @@ def get_query_from_QE(root_dir, session_id):
 def entropy_sampler(predictions, entropies, near_indices, query_class_idx, N, K):
     return entropies.argsort()[::-1][:K]
 
+
 def random_sampler(predictions, entropies, near_indices, query_class_idx, N, K):
     return np.random.randint(low=0, high=N, size=K)
+
 
 def front_mid_end_sampler(predictions, entropies, near_indices, query_class_idx, N, K):
     mid = K//3
@@ -56,6 +58,7 @@ def front_mid_end_sampler(predictions, entropies, near_indices, query_class_idx,
     end_indices = near_indices[-end:]
     return np.concatenate([front_indices,mid_indices,end_indices])
 
+
 def cnfp_sampler(predictions, entropies, near_indices, query_class_idx, N, K):
     is_positive = predictions==query_class_idx
     near_positives = np.array([x for x in near_indices if is_positive[x]])
@@ -63,6 +66,7 @@ def cnfp_sampler(predictions, entropies, near_indices, query_class_idx, N, K):
     closest_negatives = near_negatives[:K//2] # These are the closest predicted negatives
     farthest_positives = near_positives[::-1][:(K-K//2)] # These are the closest predicted negatives
     return np.concatenate([closest_negatives, farthest_positives])
+
 
 def hybrid_sampler(predictions, entropies, near_indices, query_class_idx, N, K):
     A = entropy_sampler(predictions, entropies, near_indices, query_class_idx, N, K)
@@ -133,7 +137,7 @@ def simulate_expert_annotation(query_dir, search_dir, samples_given_to_expert, q
 
 
 def run_ilawsia(query_dir, search_dir, test_dir, temp_dbdir, num_sessions, rounds_per_session, \
-                expert_labels_per_round, sampler_choice, last_epoch, ckpt_dir, result_dir):
+                expert_labels_per_round, sampler_choice, last_epoch, ckpt_dir, result_dir, log_dir):
     """
     query_dir,search_dir,test_dir contains frozen (512,7,7) embeddings which are calculated only once.
     These are already created before running this script.
@@ -144,12 +148,14 @@ def run_ilawsia(query_dir, search_dir, test_dir, temp_dbdir, num_sessions, round
     curr_query_db_dir = os.path.join(temp_dbdir, "query_db_before_feedback")
     curr_search_db_dir = os.path.join(temp_dbdir, "search_db_before_feedback")
     curr_test_db_dir = os.path.join(temp_dbdir, "test_db_before_feedback")
+
     curr_ckpt_clf_dir = os.path.join(ckpt_dir,"ckpt_clf_before_feedback")
     curr_ckpt_met_dir = os.path.join(ckpt_dir,"ckpt_met_before_feedback")
-    curr_log_clf_dir = os.path.join(ckpt_dir,"ckpt_clf_before_feedback")
-    curr_log_met_dir = os.path.join(ckpt_dir,"ckpt_met_before_feedback")
-    curr_result_dir = os.path.join(result_dir,"result_before_feedback")
 
+    curr_log_clf_dir = os.path.join(log_dir,"logs_clf_before_feedback")
+    curr_log_met_dir = os.path.join(log_dir,"logs_met_before_feedback")
+
+    curr_result_dir = os.path.join(result_dir,"result_before_feedback")
     all_results_json = os.path.join(result_dir,"all_results.json")
 
     # Train classifier and metric models from initial query set (10 files per class)
@@ -185,6 +191,10 @@ def run_ilawsia(query_dir, search_dir, test_dir, temp_dbdir, num_sessions, round
 
             curr_ckpt_clf_dir = os.path.join(ckpt_dir,"ckpt_clf_sess_{}_round_{}".format(session_id,round))
             curr_ckpt_met_dir = os.path.join(ckpt_dir,"ckpt_met_sess_{}_round_{}".format(session_id,round))
+
+            curr_log_clf_dir = os.path.join(log_dir,"logs_clf_sess_{}_round_{}".format(session_id,round))
+            curr_log_met_dir = os.path.join(log_dir,"logs_met_sess_{}_round_{}".format(session_id,round))
+
             curr_result_dir = os.path.join(result_dir,"result_sess_{}_round_{}".format(session_id,round))
 
             train_models(root_dir=query_dir, ckpt_clf_dir=curr_ckpt_clf_dir, ckpt_met_dir=curr_ckpt_met_dir, \
@@ -207,26 +217,13 @@ def main():
     parser.add_argument("--last_epoch", type=int, default=49)
     parser.add_argument("--ckpt_dir", type=str, required=True)
     parser.add_argument("--result_dir", type=str, required=True)
+    parser.add_argument("--log_dir", type=str, required=True)
     args = parser.parse_args()
     print(args,flush=True)
     run_ilawsia(args.query_dir, args.search_dir, args.test_dir, args.temp_dbdir, args.num_sessions, \
             args.rounds_per_session, args.expert_labels_per_round, args.sampler_choice, args.last_epoch, \
-            args.ckpt_dir, args.result_dir)
+            args.ckpt_dir, args.result_dir, args.log_dir)
 
 
 if __name__=="__main__":
     main()
-
-
-#####
-# query_dir = "/ssd_scratch/cvit/piyush/QueryDB"
-# search_dir = "/ssd_scratch/cvit/piyush/SearchDB"
-# test_dir = "/ssd_scratch/cvit/piyush/TestDB"
-# temp_dbdir = "/ssd_scratch/cvit/piyush/EmbDB"
-# ckpt_dir = "/ssd_scratch/cvit/piyush/EmbDB"
-# result_dir = "results"
-# num_sessions = 1000
-# rounds_per_session = 5
-# expert_labels_per_round = 10
-# sampler_choice = "cnfp"
-# last_epoch=49
