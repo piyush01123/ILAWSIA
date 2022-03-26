@@ -8,7 +8,7 @@ import random
 import matplotlib
 
 
-def plot_tsne(root_dir, outfile, points_per_class=50):
+def plot_tsne(root_dir, outfile, points_per_class=300):
     classNames = sorted(os.listdir(root_dir))
     features = []
     random.seed(42)
@@ -19,18 +19,17 @@ def plot_tsne(root_dir, outfile, points_per_class=50):
             fp = os.path.join(root_dir, className, file)
             features.append(np.load(fp))
     features = np.stack(features)
-    tsne = TSNE(n_components=2, verbose=1, perplexity=500, n_iter=5000)
+    tsne = TSNE(n_components=2, verbose=1, perplexity=50, n_iter=1000)
     points = tsne.fit_transform(features)
 
     L=[[i]*points_per_class for i in range(len(classNames))]
-    L=[item for color in L for item in color]
+    L=[item for alist in L for item in alist]
     colors = [plt.cm.tab10(i) for i in L] # using the "tab10" colormap
     handles = [matplotlib.patches.Patch(color=plt.cm.tab10(i), label=c) for i, c in enumerate(classNames)]
 
-    plt.figure(figsize=(10,8))
-    plt.scatter(*points.T, c=colors)
-    plt.legend(handles=handles,  title='Color')
-    plt.title("T-SNE plot with pretrained ResNet-18")
+    fig = plt.figure(figsize=(10,8))
+    plt.scatter(*points.T, c=colors, s=5)
+    fig.legend(handles=handles,  title='Label', loc="center right")
     plt.savefig(outfile)
 
 
