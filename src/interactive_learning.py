@@ -191,7 +191,7 @@ def run_ilawsia(query_dir, search_dir, test_dir, temp_dbdir, num_sessions, round
                          log_clf_dir=curr_log_clf_dir, log_met_dir=curr_log_met_dir, save_every_epoch=False)
             metrics = test_performances(root_dir=test_dir, curr_test_db_dir=curr_test_db_dir, export_dir=curr_result_dir, \
                          curr_ckpt_clf_dir=curr_ckpt_clf_dir, curr_ckpt_met_dir=curr_ckpt_met_dir,last_epoch=last_epoch)
-            update_json({"session_id":session_id, "round":round, "metrics":metrics}, all_results_json)
+            utils.update_json({"session_id":session_id, "round":round, "metrics":metrics}, all_results_json)
 
 
 def main():
