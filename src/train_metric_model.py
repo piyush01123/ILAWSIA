@@ -23,7 +23,6 @@ import datetime
 from sklearn.model_selection import train_test_split
 from torch.utils.tensorboard import SummaryWriter
 import sklearn.metrics as metrics
-import wandb
 
 
 NUM_CLASSES = 9
@@ -150,7 +149,6 @@ def train_triplet_loss_model(root_dir, ckpt_dir="ckpt_met", log_dir="logs_met", 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = nn.DataParallel(model).to(device)
 
-    wandb.init(project='ILAWSIA', sync_tensorboard=True)
     writer = SummaryWriter(log_dir=log_dir)
 
     for epoch in range(num_epochs):
@@ -170,7 +168,6 @@ def train_triplet_loss_model(root_dir, ckpt_dir="ckpt_met", log_dir="logs_met", 
 
         stats_file = os.path.join(log_dir, "training_prog_met.json")
         update_stats_json(stats_file, epoch, loss_trn, loss_val, acc_metrics)
-    wandb.finish()
 
 
 def main():

@@ -21,7 +21,6 @@ import datetime
 from sklearn.model_selection import train_test_split
 from torch.utils.tensorboard import SummaryWriter
 import sklearn.metrics as metrics
-import wandb
 
 
 NUM_CLASSES = 9
@@ -152,7 +151,6 @@ def train_classification_model(root_dir, ckpt_dir="ckpt_clf", log_dir="logs_clf"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = nn.DataParallel(model).to(device)
 
-    wandb.init(project='ILAWSIA', sync_tensorboard=True)
     writer = SummaryWriter(log_dir=log_dir)
 
     for epoch in range(num_epochs):
@@ -166,7 +164,6 @@ def train_classification_model(root_dir, ckpt_dir="ckpt_clf", log_dir="logs_clf"
             loss_val, acc_val, report = val_epoch(model, val_dl, device, writer, epoch)
         stats_file = os.path.join(log_dir, "training_prog_clf.json")
         update_stats_json(stats_file, epoch, loss_trn, acc_trn, loss_val, acc_val, report)
-    wandb.finish()
 
 
 def main():
